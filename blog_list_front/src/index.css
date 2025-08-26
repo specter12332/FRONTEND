@@ -1,0 +1,15 @@
+body {
+  background-color: #121212; /* Negro moderno */
+  color: white; /* Texto blanco */
+  margin: 0;
+  font-family: sans-serif;
+}
+
+a {
+  color: #4ade80; /* Verde suave para links */
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
