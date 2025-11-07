@@ -1,5 +1,6 @@
 import axios from 'axios'
 const baseUrl = '/api/blogs'
+const commentUrl = '/api/comments'
 
 let token = null
 
@@ -36,5 +37,38 @@ const remove = async (id) => {
   return response.data
 }
 
+// Nuevas funciones para comentarios
+const getComments = async (bookId) => {
+  const response = await axios.get(`${commentUrl}/book/${bookId}`)
+  return response.data
+}
 
-export default { getAll, remove, setToken, create, update }
+const createComment = async (bookId, comment) => {
+  const config = {
+    headers: { Authorization: token },
+  }
+  const response = await axios.post(commentUrl, {
+    ...comment,
+    bookId
+  }, config)
+  return response.data
+}
+
+const deleteComment = async (commentId) => {
+  const config = {
+    headers: { Authorization: token },
+  }
+  const response = await axios.delete(`${commentUrl}/${commentId}`, config)
+  return response.data
+}
+
+export default { 
+  getAll, 
+  remove, 
+  setToken, 
+  create, 
+  update,
+  getComments,
+  createComment,
+  deleteComment
+}

@@ -1,8 +1,7 @@
 import React, { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { UserContext } from "../../contexts/UserContext";
-import { useLibros } from "../../hooks/useLibros";
-import "./NuevoLibro.css";
+import { UserContext } from "../contexts/UserContext";
+import { useLibros } from "../hooks/useLibros";
 
 const librosNuevos = [
 	{
@@ -245,7 +244,7 @@ const renderSeccionPrincipal = (onPortadaClick, modoClaro, librosActuales, navig
 				alignItems: 'center',
 				justifyContent: 'center'
 			}}>
-        {librosActuales.map((libro, idx) => (
+        {librosActuales && librosActuales.map((libro, idx) => (
 					<div key={libro.id} onClick={() => onPortadaClick(libro)} style={{
             width: 140,
             cursor: 'pointer',
@@ -278,7 +277,7 @@ const renderSeccionPrincipal = (onPortadaClick, modoClaro, librosActuales, navig
       <h3 style={{ margin: 0, fontFamily: 'PlayfairDisplay, Georgia, serif', fontSize: '1.4rem' }}>Lectura recomendada</h3>
       <p style={{ marginTop: '0.6rem', color: modoClaro ? '#334155' : '#cfefff' }}>Seleccionamos para ti una lectura destacada cada semana. Haz clic en la portada para abrir el libro y empezar a leer.</p>
       <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1rem', alignItems: 'center' }}>
-        {librosActuales[0] && (
+        {librosActuales && librosActuales[0] && (
           <>
             <img src={librosActuales[0].portada} alt="destacado" style={{ width: 72, height: 100, objectFit: 'cover', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,0.25)' }} />
             <div>
@@ -294,11 +293,13 @@ const renderSeccionPrincipal = (onPortadaClick, modoClaro, librosActuales, navig
               cursor: 'pointer',
               fontWeight: 700
             }}>Comenzar a leer</button>
-          </div>
-        </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </aside>
-	</div>
+  </div>
 );
 
 export default function NuevoLibro({ modoClaro }) {
@@ -327,18 +328,23 @@ export default function NuevoLibro({ modoClaro }) {
 			sinopsis: sinopsis,
 			biografia: `Obra de ${autor}.`
 		};
-		
-		agregarLibro(nuevoLibro);
-		setNuevo(true);
-		
-		// Limpiar el formulario
-		setTimeout(() => {
-			setTitulo("");
-			setAutor("");
-			setPortada("");
-			setSinopsis("");
-			setNuevo(false);
-		}, 3000);
+ 		// add the book and get the created record back so we can show it immediately
+ 		const creado = agregarLibro(nuevoLibro);
+ 		// ensure local UI reflects the newly added book immediately
+ 		setLibrosActuales(prev => [creado, ...prev]);
+ 		setLibroSeleccionado(creado);
+ 		setNuevo(true);
+
+ 		// Limpiar el formulario después de un pequeño delay y mantener la selección breve
+ 		setTimeout(() => {
+ 			setTitulo("");
+ 			setAutor("");
+ 			setPortada("");
+ 			setSinopsis("");
+ 			setNuevo(false);
+ 			// cerrar modal automático opcional: comentar si no se desea
+ 			// setLibroSeleccionado(null);
+ 		}, 3000);
 	};
 
 	const handlePortadaClick = (libro) => {
@@ -540,32 +546,21 @@ export default function NuevoLibro({ modoClaro }) {
 		);
 	}
 
-	// Usuario: vista tipo "hero poster" usando el primer libro como destacado
-	const destacado = librosActuales && librosActuales.length > 0 ? librosActuales[0] : librosNuevos[0];
-
+	// Usuario: solo ve la lista de libros nuevos con portada y etiqueta "New"
 	return (
-		<div className="nuevo-hero">
-			{/* fondo difuminado */}
-			<div className="hero-bg" style={{ backgroundImage: `url(${destacado?.portada})` }} />
-			<div className="hero-overlay" />
-			<div className="hero-content">
-				<div className="cover-card" onClick={() => destacado && handlePortadaClick(destacado)}>
-					<img src={destacado?.portada} alt={destacado?.titulo} onError={(e)=>{e.currentTarget.style.opacity=0.9}} />
-				</div>
-				<h1 className="hero-title">{destacado?.titulo || 'Lectura destacada'}</h1>
-				<div className="hero-sub">{destacado?.autor || 'Autor desconocido'}</div>
-				<div className="cta-pill">
-					<button className="btn-gradient" onClick={() => destacado && navigate(`/libro/${destacado.id}/leer`)}>Comenzar a leer</button>
-				</div>
-				<div className="sinopsis-card">
-					<strong>Sinopsis:</strong>
-					<p style={{ marginTop: '0.6rem' }}>{destacado?.sinopsis || 'Sinopsis no disponible.'}</p>
-				</div>
-				{/* Conservamos la sección de galería/aside más abajo para exploración */}
-				<TituloLibrosNuevos modoClaro={modoClaro} />
-				{renderSeccionPrincipal(handlePortadaClick, modoClaro, librosActuales, navigate)}
-				<ModalLibro libro={libroSeleccionado} onClose={handleCloseModal} navigate={navigate} />
-			</div>
+		<div
+			style={{
+				minHeight: "80vh",
+				display: "flex",
+				flexDirection: "column",
+				alignItems: "center",
+				justifyContent: "flex-start",
+				paddingTop: "60px",
+			}}
+		>
+			<TituloLibrosNuevos modoClaro={modoClaro} />
+			{renderSeccionPrincipal(handlePortadaClick, modoClaro, librosActuales, navigate)}
+			<ModalLibro libro={libroSeleccionado} onClose={handleCloseModal} navigate={navigate} />
 		</div>
 	);
 }

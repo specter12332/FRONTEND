@@ -1,12 +1,11 @@
 
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { Link } from "react-router-dom";
 import { FiPlus, FiSearch, FiBookOpen, FiMenu } from "react-icons/fi";
+import { UserContext } from "../contexts/UserContext";
 
-  let user = null;
-  try {
-    user = JSON.parse(localStorage.getItem("user"));
-  } catch {}
+export default function Sidebar() {
+  const { user } = useContext(UserContext);
 
   const [open, setOpen] = useState(true);
 

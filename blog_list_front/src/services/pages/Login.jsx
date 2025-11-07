@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { UserContext } from "../../contexts/UserContext";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -7,8 +8,8 @@ export default function Login() {
   const [nombre, setNombre] = useState("");
   const [numero, setNumero] = useState("");
   const [isRegister, setIsRegister] = useState(false);
-  const [role, setRole] = useState("user");
   const navigate = useNavigate();
+  const { login } = useContext(UserContext);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,7 +29,7 @@ export default function Login() {
             numero: numero,
             correo: email,
             contraseña: password,
-            role: role,
+            role: 'user',
           }),
         });
         
@@ -41,7 +42,6 @@ export default function Login() {
           setPassword("");
           setNombre("");
           setNumero("");
-          setRole("user");
         } else {
           alert(data.error || 'Error al registrar usuario');
         }
@@ -66,9 +66,20 @@ export default function Login() {
       });
 
       if (response.ok) {
-        const user = await response.json();
-        // Guardar el token y la información del usuario
-        window.localStorage.setItem('loggedBlogappUser', JSON.stringify(user));
+        const userData = await response.json();
+        // Mapear los campos para que coincidan con lo que espera la interfaz
+        const mappedUser = {
+          id: userData.id,
+          name: userData.nombre,
+          username: userData.nombre,
+          email: userData.correo,
+          phone: userData.numero,
+          role: userData.role || 'user',
+          // Mantener el token si existe
+          token: userData.token
+        };
+        // Usar el contexto para guardar el usuario
+        login(mappedUser);
         // Redirige a biblioteca
         navigate("/biblioteca");
       } else {
@@ -124,16 +135,6 @@ export default function Login() {
         required
         style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
       />
-      {isRegister && (
-        <select
-          value={role}
-          onChange={e => setRole(e.target.value)}
-          style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
-        >
-          <option value="user">Usuario</option>
-          <option value="admin">Administrador</option>
-        </select>
-      )}
       <button type="submit" style={{ padding: 10, borderRadius: 4, background: "#4ade80", color: "#222", fontWeight: "bold", border: "none" }}>
         {isRegister ? "Crear cuenta" : "Iniciar sesión"}
       </button>

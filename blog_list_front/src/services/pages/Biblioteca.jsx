@@ -1,30 +1,47 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
+import { useNavigate } from 'react-router-dom';
 import { getUserLibrary, setToken } from "../userLibrary";
+import { UserContext } from "../../contexts/UserContext";
 
 export default function Biblioteca({ modoClaro }) {
   const [libros, setLibros] = useState([]);
   const [racha, setRacha] = useState(0);
+  const { user } = useContext(UserContext);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Obtener usuario autenticado de localStorage
-    const loggedUserJSON = window.localStorage.getItem('loggedBlogappUser');
-    if (loggedUserJSON) {
-      const user = JSON.parse(loggedUserJSON);
-      setToken(user.token);
+    if (user && user.token && user.id) {
+      // set token for API calls
+      setToken(user.token)
       getUserLibrary(user.id)
         .then(data => setLibros(data))
         .catch(() => setLibros([]));
     } else {
       setLibros([]);
     }
-  }, []);
+  }, [user]);
 
   return (
     <div style={{ padding: "2em", minHeight: "80vh" }}>
-      <h2 style={{ color: modoClaro ? "#222" : "#00c6ff", fontSize: "2em", marginBottom: "1em" }}>
+      <h2 style={{ color: modoClaro ? "#222" : "#00c6ff", fontSize: "2em", marginBottom: "0.5em" }}>
         Mi Biblioteca
       </h2>
+      <p style={{
+        fontFamily: "'Playfair Display', serif",
+        fontStyle: "italic",
+        color: modoClaro ? "#444" : "rgba(255,255,255,0.95)",
+        fontSize: "1.35em",
+        marginBottom: "1.5em",
+        textAlign: "center",
+        textShadow: modoClaro ? "none" : "0 2px 8px rgba(0,0,0,0.6)",
+        maxWidth: "900px",
+        marginLeft: "auto",
+        marginRight: "auto",
+        padding: "0 1em"
+      }}>
+        Aquí guardarás tus aventuras con la lectura
+      </p>
       {racha > 0 && (
         <div style={{
           position: "absolute",
@@ -95,7 +112,7 @@ export default function Biblioteca({ modoClaro }) {
                   cursor: "pointer",
                   boxShadow: "0 2px 8px #00c6ff44"
                 }}
-                onClick={() => alert(`Comenzando lectura de "${libro.titulo}"`)}
+                onClick={() => navigate(`/libro/${libro.id}/leer`, { state: { goToSaved: true } })}
               >
                 Comenzar lectura
               </button>

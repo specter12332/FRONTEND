@@ -1,24 +1,18 @@
-// src/components/Navbar.jsx
 import { Link, useNavigate } from "react-router-dom";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { createPortal } from "react-dom";
-
-// Simulación de datos de usuario (reemplaza por tu lógica real)
-const usuario = {
-  correo: "usuario@email.com",
-  librosLeidos: 12,
-  racha: 5,
-};
+import { UserContext } from "../contexts/UserContext";
 
 export default function Navbar({ modoClaro, setModoClaro }) {
-  const user = JSON.parse(localStorage.getItem("user"));
+  const { user, logout } = useContext(UserContext);
   const [showMenu, setShowMenu] = useState(false);
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem("user");
+    logout();
     setShowMenu(false);
+    setMostrarPerfil(false);
     navigate("/login");
   };
 
@@ -146,9 +140,9 @@ export default function Navbar({ modoClaro, setModoClaro }) {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontWeight: 700 }}>{user.name || 'Usuario'}</div>
-                      <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>{user.email || user.correo}</div>
-                    </div>
+                        <div style={{ fontWeight: 700 }}>{user.nombre || user.name || user.username || 'Usuario'}</div>
+                        <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>{user.correo || user.email || '-'}</div>
+                      </div>
                   </div>
                   <hr style={{ margin: '10px 0', borderColor: 'rgba(0,0,0,0.06)' }} />
                   <div style={{ display: 'flex', gap: 8 }}>

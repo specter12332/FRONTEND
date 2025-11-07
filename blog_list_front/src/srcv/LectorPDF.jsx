@@ -1,15 +1,27 @@
 import React, { useState, useEffect } from "react";
+import './LectorPDF.css';
 
 import * as pdfjsLib from "pdfjs-dist/build/pdf";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker?url";
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// Debug flag (set true when you need verbose logs)
+const pdfDebug = false;
+if (pdfDebug) {
+  console.log('PDF.js worker configured');
+  window.pdfjsLib = pdfjsLib;
+}
 
-export default function LectorPDF({ archivo = "/sample.pdf" }) {
+export default function LectorPDF({ archivo = "/libro1.pdf", useIframe = false }) {
+  // Usar el archivo proporcionado directamente
+  const pdfFile = archivo;
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pdf, setPdf] = useState(null);
   const [pageTexts, setPageTexts] = useState([]);
+  const [renderCanvas, setRenderCanvas] = useState(false);
+  const [fallbackViewer, setFallbackViewer] = useState(false);
+  const [fileStatus, setFileStatus] = useState(null);
   const [lastPage, setLastPage] = useState(() => {
     const saved = localStorage.getItem(`lastPage-${archivo}`);
     return saved ? parseInt(saved, 10) : 1;
@@ -18,37 +30,156 @@ export default function LectorPDF({ archivo = "/sample.pdf" }) {
   // Cargar y extraer texto del PDF
   useEffect(() => {
     let isMounted = true;
-  setLoading(true);
-  setError(null);
-  setPdf(null);
-  setPageTexts([]);
-  setNumPages(0);
-    pdfjsLib.getDocument(archivo).promise
-      .then(async (pdfDoc) => {
+    setLoading(true);
+    setError(null);
+    setPdf(null);
+    setPageTexts([]);
+    setNumPages(0);
+    setFallbackViewer(false); // Reset fallback state
+
+    // Asegurarse de que la ruta es absoluta y relativa a /public
+    const pdfPath = archivo.startsWith('/') ? archivo : `/${archivo}`;
+    if (useIframe) {
+      // If caller requests iframe viewer (for files that pdf.js can't handle), test file accessibility then enable fallback
+      try {
+        fetch(archivo, { method: 'HEAD' })
+          .then(res => {
+            if (!isMounted) return;
+            setFileStatus(res.status);
+            setFallbackViewer(true);
+            setLoading(false);
+          })
+          .catch(err => {
+            console.error('LectorPDF: HEAD fetch failed', err);
+            if (!isMounted) return;
+            setFileStatus('error');
+            setFallbackViewer(true);
+            setLoading(false);
+          });
+      } catch (e) {
+        console.error('LectorPDF: unexpected error testing file', e);
+        if (isMounted) {
+          setFileStatus('error');
+          setFallbackViewer(true);
+          setLoading(false);
+        }
+      }
+      return;
+    }
+    pdfjsLib.getDocument({
+      url: pdfPath,
+      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.196/cmaps/',
+      cMapPacked: true,
+      enableXfa: true,
+      useWorkerFetch: true,
+      withCredentials: true,
+      password: '', // Para PDFs protegidos sin contraseña
+    }).promise.then(async (pdfDoc) => {
         if (!isMounted) return;
         setPdf(pdfDoc);
         setNumPages(pdfDoc.numPages);
-        // Extraer texto de cada página
+        setError(null); // Clear any previous errors
+        // Extraer texto de cada página. Usar normalizeWhitespace para mejorar espacios y guiones.
         const texts = [];
         for (let i = 1; i <= pdfDoc.numPages; i++) {
           const page = await pdfDoc.getPage(i);
-          const content = await page.getTextContent();
-          const pageText = content.items.map(item => item.str).join(' ');
+          const viewport = page.getViewport({ scale: 1.0 });
+          
+          // Try to extract text with enhanced options
+          const content = await page.getTextContent({
+            normalizeWhitespace: true,
+            disableCombineTextItems: false,
+            includeMarkedContent: true
+          });
+          
+          // Map items preserving some layout
+          const pageText = content.items
+            .map(item => item.str)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          
           texts.push(pageText);
         }
         if (isMounted) {
           setPageTexts(texts);
+          // If extraction produced no meaningful text, render pages as canvases (useful for scanned PDFs)
+          const hasText = texts.some(t => t && t.toString().trim().length > 10);
+          if (!hasText) {
+            console.warn('LectorPDF: text extraction returned empty content, rendering pages as canvases');
+            setRenderCanvas(true);
+            // Do not set fallbackViewer here; we can render the pages via pdf.js even if text extraction failed.
+          }
           setLoading(false);
         }
       })
       .catch((err) => {
+        console.error('LectorPDF: error loading PDF', err);
         if (isMounted) {
-          setError('No se pudo cargar el PDF.');
-          setLoading(false);
+          // show detailed error to help debugging and enable fallback viewer
+          setError(`No se pudo cargar el PDF: ${err && err.message ? err.message : String(err)}`);
+          // test file accessibility before enabling fallback
+          fetch(archivo, { method: 'HEAD' })
+            .then(res => {
+                if (pdfDebug) console.log('LectorPDF: HEAD on error', archivo, res.status);
+              if (!isMounted) return;
+              setFileStatus(res.status);
+              setFallbackViewer(true);
+              setLoading(false);
+            })
+            .catch(fetchErr => {
+              console.error('LectorPDF: HEAD fetch failed on error', fetchErr);
+              if (!isMounted) return;
+              setFileStatus('error');
+              setFallbackViewer(true);
+              setLoading(false);
+            });
         }
       });
     return () => { isMounted = false; };
-  }, [archivo]);
+  }, [archivo, useIframe]);
+
+  // Cuando debemos renderizar como canvas (scanned/encrypted PDFs), dibujar cada página
+  useEffect(() => {
+    if (!pdf || !renderCanvas) return;
+    let cancelled = false;
+
+    const renderAllPages = async () => {
+      for (let i = 1; i <= pdf.numPages; i++) {
+        if (cancelled) return;
+        try {
+          const page = await pdf.getPage(i);
+          const canvasId = `pdf-canvas-${encodeURIComponent(archivo)}-${i}`;
+          const canvas = document.getElementById(canvasId);
+          if (!canvas) continue;
+
+          // Calculate scale to fit the available width while honoring devicePixelRatio
+          const parent = canvas.parentElement || canvas;
+          const availableWidth = Math.max(300, parent.clientWidth || 800);
+          const unscaledViewport = page.getViewport({ scale: 1.0 });
+          const scale = Math.min(availableWidth / unscaledViewport.width, 2.0);
+          const viewport = page.getViewport({ scale });
+
+          const outputScale = window.devicePixelRatio || 1;
+          canvas.width = Math.floor(viewport.width * outputScale);
+          canvas.height = Math.floor(viewport.height * outputScale);
+          canvas.style.width = `${Math.floor(viewport.width)}px`;
+          canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+          const ctx = canvas.getContext('2d');
+          ctx.setTransform(outputScale, 0, 0, outputScale, 0, 0);
+
+          const renderTask = page.render({ canvasContext: ctx, viewport });
+          await renderTask.promise;
+        } catch (e) {
+          if (pdfDebug) console.error('Canvas render error for page', i, e);
+        }
+      }
+    };
+
+    renderAllPages();
+    return () => { cancelled = true; };
+  }, [pdf, renderCanvas, archivo]);
 
   return (
     <div style={{
@@ -58,12 +189,6 @@ export default function LectorPDF({ archivo = "/sample.pdf" }) {
       background: '#070709',
       minHeight: '100vh'
     }}>
-      <style>{`
-        /* Load fonts quickly from Google Fonts - move to index.html for production */
-        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Merriweather:wght@300;700&display=swap');
-        .lector-container::-webkit-scrollbar { width: 10px; }
-        .lector-container::-webkit-scrollbar-thumb { background: rgba(255,122,0,0.9); border-radius: 8px; }
-      `}</style>
 
       <div style={{
         width: '100%',
@@ -95,72 +220,130 @@ export default function LectorPDF({ archivo = "/sample.pdf" }) {
           display: 'flex',
           gap: '1.6rem'
         }}>
-          <main style={{ flex: 1 }}>
+          <main className="lector-main">
             <div 
               className="lector-container" 
               style={{
-                maxHeight: '78vh',
-                overflowY: 'auto',
-                paddingRight: 12,
-                WebkitOverflowScrolling: 'touch'
+                paddingRight: 8,
+                WebkitOverflowScrolling: 'touch',
+                msOverflowStyle: 'none'
               }}
 
             >
               {loading && <div style={{ color: '#ffb57f', fontWeight: 700, textAlign: 'center' }}>Cargando libro…</div>}
               {error && <div style={{ color: '#ff6a6a', fontWeight: 700, textAlign: 'center' }}>{error}</div>}
-              {!loading && !error && (
-                pageTexts.map((text, idx) => (
-                  <article key={idx} style={{ marginBottom: '2.4rem' }}>
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '0.6rem'
-                    }}>
-                      <h2 style={{
-                        fontFamily: 'Merriweather, Georgia, serif',
-                        fontSize: '1.05rem',
-                        fontWeight: 700,
-                        color: '#ffd8b0',
-                      }}>Página {idx + 1}</h2>
-                      <button
-                        onClick={() => {
-                          setLastPage(idx + 1);
-                          localStorage.setItem(`lastPage-${archivo}`, idx + 1);
-                          alert(`Página ${idx + 1} guardada como marcador`);
-                        }}
-                        style={{
-                          background: 'transparent',
-                          border: '1px solid #ff7a00',
-                          color: '#ff7a00',
-                          padding: '0.3rem 0.6rem',
-                          borderRadius: 4,
-                          fontSize: '0.9rem',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                        }}
-                        onMouseOver={(e) => {
-                          e.target.style.background = '#ff7a00';
-                          e.target.style.color = '#0b0b0b';
-                        }}
-                        onMouseOut={(e) => {
-                          e.target.style.background = 'transparent';
-                          e.target.style.color = '#ff7a00';
-                        }}
-                      >
-                        Guardar página
-                      </button>
+              {fallbackViewer && (
+                <div style={{ width: '100%', height: '70vh', background: '#000', display: 'flex', alignItems: 'stretch' }}>
+                  {/* Renderizar iframe si parece un PDF; no depender únicamente del HEAD (puede fallar por CORS localmente) */}
+                  {archivo && String(archivo).toLowerCase().endsWith('.pdf') ? (
+                    <iframe title="PDF fallback" src={archivo} style={{ width: '100%', height: '100%', border: 'none' }} />
+                  ) : (
+                    <div style={{ padding: 20, color: '#ffd8b0' }}>
+                      <p><strong>No se pudo mostrar el PDF directamente.</strong></p>
+                      <p>Estado del archivo: {String(fileStatus)}</p>
+                      <p>Puedes abrir el PDF en una nueva pestaña para comprobar si está disponible:</p>
+                      <p>
+                        <a href={archivo} target="_blank" rel="noopener noreferrer" style={{ color: '#ffb347', background: '#0b0b0b', padding: '0.4rem 0.6rem', borderRadius: 6, textDecoration: 'none' }}>Abrir {archivo}</a>
+                      </p>
                     </div>
-                    <div style={{
-                      fontFamily: 'Merriweather, Georgia, serif',
-                      fontSize: '18px',
-                      lineHeight: 1.9,
-                      color: '#eef6f8',
-                      textAlign: 'justify',
-                      hyphens: 'auto'
-                    }}>{text}</div>
-                  </article>
-                ))
+                  )}
+                </div>
+              )}
+              {!loading && !error && !fallbackViewer && (
+                (
+                  renderCanvas ? (
+                    // Render pages as canvases inside articles so scrolling/guardado funciona
+                    Array.from({ length: numPages }).map((_, idx) => (
+                      <article key={idx} style={{ marginBottom: '2.4rem' }}>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '0.6rem'
+                        }}>
+                          <h2 style={{
+                            fontFamily: 'Merriweather, Georgia, serif',
+                            fontSize: '1.05rem',
+                            fontWeight: 700,
+                            color: '#ffd8b0',
+                          }}>Página {idx + 1}</h2>
+                          <button
+                            onClick={() => {
+                              setLastPage(idx + 1);
+                              localStorage.setItem(`lastPage-${archivo}`, idx + 1);
+                              alert(`Página ${idx + 1} guardada como marcador`);
+                            }}
+                            style={{
+                              background: 'transparent',
+                              border: '1px solid #ff7a00',
+                              color: '#ff7a00',
+                              padding: '0.3rem 0.6rem',
+                              borderRadius: 4,
+                              fontSize: '0.9rem',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                            }}
+                          >
+                            Guardar página
+                          </button>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                          <canvas id={`pdf-canvas-${encodeURIComponent(archivo)}-${idx+1}`} style={{ maxWidth: '100%', boxShadow: '0 8px 30px rgba(0,0,0,0.6)' }} />
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    pageTexts.map((text, idx) => (
+                      <article key={idx} style={{ marginBottom: '2.4rem' }}>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '0.6rem'
+                        }}>
+                          <h2 style={{
+                            fontFamily: 'Merriweather, Georgia, serif',
+                            fontSize: '1.05rem',
+                            fontWeight: 700,
+                            color: '#ffd8b0',
+                          }}>Página {idx + 1}</h2>
+                          <button
+                            onClick={() => {
+                              setLastPage(idx + 1);
+                              localStorage.setItem(`lastPage-${archivo}`, idx + 1);
+                              alert(`Página ${idx + 1} guardada como marcador`);
+                            }}
+                            style={{
+                              background: 'transparent',
+                              border: '1px solid #ff7a00',
+                              color: '#ff7a00',
+                              padding: '0.3rem 0.6rem',
+                              borderRadius: 4,
+                              fontSize: '0.9rem',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                            }}
+                          >
+                            Guardar página
+                          </button>
+                        </div>
+                        <div style={{
+                          fontFamily: 'Merriweather, Georgia, serif',
+                          fontSize: '18px',
+                          lineHeight: 1.9,
+                          color: '#eef6f8',
+                          textAlign: 'justify',
+                          hyphens: 'none',
+                          WebkitFontSmoothing: 'antialiased',
+                          MozOsxFontSmoothing: 'grayscale',
+                          textRendering: 'optimizeLegibility',
+                          fontVariantLigatures: 'common-ligatures',
+                          letterSpacing: '0.01em'
+                        }}>{text}</div>
+                      </article>
+                    ))
+                  )
+                )
               )}
             </div>
           </main>

@@ -1,6 +1,6 @@
 
-import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useEffect } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import LectorPDF from "../../srcv/LectorPDF";
 import { librosRepo } from "./librosRepo";
 
@@ -8,7 +8,38 @@ export default function LibroLeer() {
   const { id } = useParams();
   const navigate = useNavigate();
   const libro = librosRepo.find(l => l.id === Number(id));
-  const pdf = libro?.pdf || "/sample.pdf";
+  // Usar libro1.pdf si es Cien años de soledad
+  const pdf = libro?.titulo === "Cien años de soledad" ? "/libro1.pdf" : (libro?.pdf || "/sample.pdf");
+  const location = useLocation();
+
+  // If navigation set state.goToSaved, try to scroll to saved page once the reader has rendered.
+  useEffect(() => {
+    if (!location?.state?.goToSaved) return;
+    // Try to scroll to saved page using the same key LectorPDF uses
+    const key = `lastPage-${pdf}`;
+    const saved = localStorage.getItem(key);
+    const pageNum = saved ? parseInt(saved, 10) : null;
+    if (!pageNum) return;
+
+    let attempts = 0;
+    const maxAttempts = 20;
+    const interval = setInterval(() => {
+      attempts += 1;
+      const articles = document.querySelectorAll('article');
+      if (articles && articles.length >= pageNum) {
+        // scroll the reader container to the desired article
+        const target = articles[pageNum - 1];
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth' });
+          clearInterval(interval);
+        }
+      }
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 150);
+    return () => clearInterval(interval);
+  }, [location, pdf]);
   return (
     <div style={{
       minHeight: "100vh",

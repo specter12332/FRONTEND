@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { useUser } from '../../contexts/UserContext';
+import FeaturedCien from '../../components/FeaturedCien';
 
 const portadas = [
   "https://covers.openlibrary.org/b/id/8228691-L.jpg",
@@ -61,6 +63,12 @@ function CarruselPortadas() {
           key={url}
           src={url}
           alt={`Libro ${idx + 1}`}
+          loading="lazy"
+          onError={(e) => {
+            // Si la imagen falla, reemplazamos por un SVG in-line que actúa como placeholder
+            const placeholder = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='180'><rect width='100%25' height='100%25' fill='%23222'/><text x='50%25' y='50%25' fill='%23fff' font-size='14' text-anchor='middle' dominant-baseline='middle'>Sin%20portada</text></svg>";
+            if (e.currentTarget.src !== placeholder) e.currentTarget.src = placeholder;
+          }}
           style={{
             width: idx === actual ? "140px" : "90px",
             height: idx === actual ? "180px" : "110px",
@@ -70,7 +78,8 @@ function CarruselPortadas() {
             border: idx === actual ? "4px solid #ffb347" : "2px solid #00c6ff",
             margin: "0 1em",
             opacity: idx === actual ? 1 : 0.5,
-            transition: "all 0.6s cubic-bezier(.4,0,.2,1)"
+            transition: "all 0.6s cubic-bezier(.4,0,.2,1)",
+            background: '#111'
           }}
         />
       ))}
@@ -80,6 +89,9 @@ function CarruselPortadas() {
 
 export default function Inicio({ modoClaro, setModoClaro }) {
   const navigate = useNavigate();
+  const { user } = useUser();
+  const [showRegisterBox, setShowRegisterBox] = useState(true);
+  
   // Imagen de librería (puedes cambiar la URL por la que prefieras)
   const imagenLibreria = "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=1200&q=80";
   const fondo = `url('${imagenLibreria}')`;
@@ -116,38 +128,60 @@ export default function Inicio({ modoClaro, setModoClaro }) {
         }}
       />
       {/* Botón para ir a registro, más centrado en la pantalla */}
-      <div
-        style={{
-          position: "fixed",
-          top: "50%", // Cambia este valor
-          right: "50px",
-          transform: "translateY(-50%) translateX(-10%)",
-          zIndex: 100,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "1.2em",
-          background: modoClaro
-            ? "linear-gradient(135deg, #fffde4 0%, #e0f7fa 100%)"
-            : "linear-gradient(135deg, #222 0%, #444 100%)",
-          borderRadius: "20px",
-          boxShadow: "0 6px 32px #00c6ff44",
-          padding: "2.5em 2.5em",
-          minWidth: "340px",
-          maxWidth: "400px",
-          border: "2.5px solid #00c6ff"
-        }}
-      >
-        <span style={{
-          color: "#00c6ff",
-          fontWeight: "bold",
-          fontSize: "1.45em",
-          marginBottom: "0.4em",
-          textAlign: "center",
-          letterSpacing: "1px"
-        }}>
-          ¿Aún no tienes cuenta?
-        </span>
+      { !user && showRegisterBox && (
+        <div
+          style={{
+            position: "fixed",
+            top: "50%", // Cambia este valor
+            right: "50px",
+            transform: "translateY(-50%) translateX(-10%)",
+            zIndex: 100,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "1.2em",
+            background: modoClaro
+              ? "linear-gradient(135deg, #fffde4 0%, #e0f7fa 100%)"
+              : "linear-gradient(135deg, #222 0%, #444 100%)",
+            borderRadius: "20px",
+            boxShadow: "0 6px 32px #00c6ff44",
+            padding: "2.5em 2.5em",
+            minWidth: "340px",
+            maxWidth: "400px",
+            border: "2.5px solid #00c6ff"
+          }}
+        >
+          {/* Close X button */}
+          <button
+            onClick={() => setShowRegisterBox(false)}
+            aria-label="Cerrar cuadro"
+            title="Cerrar"
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              border: 'none',
+              background: 'transparent',
+              color: modoClaro ? '#072a40' : '#e6f7ff',
+              fontSize: 20,
+              cursor: 'pointer'
+            }}
+          >
+            ×
+          </button>
+          <span style={{
+            color: "#00c6ff",
+            fontWeight: "bold",
+            fontSize: "1.45em",
+            marginBottom: "0.4em",
+            textAlign: "center",
+            letterSpacing: "1px"
+          }}>
+            ¿Aún no tienes cuenta?
+          </span>
         <span style={{
           color: modoClaro ? "#222" : "#fff",
           fontSize: "1.13em",
@@ -204,6 +238,7 @@ export default function Inicio({ modoClaro, setModoClaro }) {
           Registrarse
         </button>
       </div>
+      )}
       <div
         style={{
           position: "relative",
@@ -328,6 +363,39 @@ export default function Inicio({ modoClaro, setModoClaro }) {
             ¡Empieza tu aventura hoy!
           </span>
         </p>
+        
+        {/* Botón de Agregar Libro solo para administradores */}
+        {user?.role === 'admin' && (
+          <Link
+            to="/nuevo-libro"
+            style={{
+              background: "linear-gradient(90deg, #4f46e5 0%, #3730a3 100%)",
+              color: "white",
+              padding: "14px 28px",
+              borderRadius: "8px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              fontSize: "1.1em",
+              fontWeight: "600",
+              textDecoration: "none",
+              marginTop: "20px",
+              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+              transition: "all 0.3s ease"
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = "translateY(-2px)";
+              e.target.style.boxShadow = "0 6px 8px -1px rgba(0, 0, 0, 0.2)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = "translateY(0)";
+              e.target.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)";
+            }}
+          >
+            <span>➕</span>
+            Agregar Nuevo Libro
+          </Link>
+        )}
       </div>
       {/* Botón modo claro/oscuro en la esquina inferior derecha */}
       <button

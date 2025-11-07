@@ -1,50 +1,12 @@
 import React, { useState } from "react";
 import { FaSearch } from "react-icons/fa";
-
-const librosRepo = [
-	{
-		id: 1,
-		titulo: "Cien años de soledad",
-		autor: "Gabriel García Márquez",
-		portada: "https://covers.openlibrary.org/b/id/8228691-L.jpg",
-		nuevo: false,
-	},
-	{
-		id: 2,
-		titulo: "El principito",
-		autor: "Antoine de Saint-Exupéry",
-		portada: "https://covers.openlibrary.org/b/id/8108696-L.jpg",
-		nuevo: false,
-	},
-	{
-		id: 3,
-		titulo: "Don Quijote de la Mancha",
-		autor: "Miguel de Cervantes",
-		portada: "https://covers.openlibrary.org/b/id/8231856-L.jpg",
-		nuevo: false,
-	},
-	{
-		id: 4,
-		titulo: "Rayuela",
-		autor: "Julio Cortázar",
-		portada: "https://covers.openlibrary.org/b/id/8235112-L.jpg",
-		nuevo: true,
-	},
-	{
-		id: 5,
-		titulo: "New England Recipes",
-		autor: "Autor desconocido",
-		portada: "https://covers.openlibrary.org/b/id/8235113-L.jpg",
-		nuevo: true,
-	},
-];
+import { useLibros } from "../../hooks/useLibros";
 
 export default function BuscarLibros() {
 	const [busqueda, setBusqueda] = useState("");
+	const { buscarLibros } = useLibros();
 
-	const librosFiltrados = librosRepo.filter(libro =>
-		libro.titulo.toLowerCase().includes(busqueda.toLowerCase())
-	);
+	const librosFiltrados = buscarLibros(busqueda);
 
 	return (
 		<div
@@ -205,15 +167,34 @@ export default function BuscarLibros() {
 					</div>
 				))}
 				{librosFiltrados.length === 0 && (
-					<p
+					<div
 						style={{
-							color: "#00c6ff",
 							gridColumn: "1/-1",
 							textAlign: "center",
+							padding: "2em",
+							background: "rgba(0,198,255,0.1)",
+							borderRadius: "12px",
+							margin: "1em"
 						}}
 					>
-						No se encontraron libros.
-					</p>
+						<p
+							style={{
+								color: "#00c6ff",
+								fontSize: "1.2em",
+								marginBottom: "0.5em"
+							}}
+						>
+							No se encontraron libros que coincidan con "{busqueda}"
+						</p>
+						<p
+							style={{
+								color: "#999",
+								fontSize: "0.9em"
+							}}
+						>
+							Intenta con otros términos o revisa la ortografía
+						</p>
+					</div>
 				)}
 			</div>
 		</div>

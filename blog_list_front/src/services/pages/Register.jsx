@@ -2,21 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
 
-const commonInputStyles = {
-  width: "100%",
-  padding: "15px",
-  marginBottom: "16px",
-  borderRadius: "12px",
-  background: "#ffffff",
-  border: "1px solid rgba(0, 198, 255, 0.2)",
-  outline: "none",
-  fontSize: "16px",
-  color: "#333",
-  transition: "all 0.3s ease",
-  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-};
-
-const inputStyle = {
+const getInputStyle = (modoClaro) => ({
   width: "100%",
   padding: "15px",
   marginBottom: "16px",
@@ -25,7 +11,7 @@ const inputStyle = {
   border: "1px solid rgba(0, 198, 255, 0.3)",
   outline: "none",
   fontSize: "16px",
-  color: "#333",
+  color: modoClaro ? "#333" : "#fff",
   transition: "all 0.3s ease",
   boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
 });
