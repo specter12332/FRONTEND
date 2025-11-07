@@ -1,0 +1,252 @@
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+
+const librosRepo = [
+  {
+    id: 1,
+    titulo: "Cien años de soledad",
+    autor: "Gabriel García Márquez",
+    portada: "https://covers.openlibrary.org/b/id/8228691-L.jpg",
+    sinopsis: "La historia de la familia Buendía en el mítico pueblo de Macondo, una obra maestra del realismo mágico.",
+    año: "1967",
+    género: "Realismo mágico",
+    páginas: "432",
+    rating: 4.8
+  },
+  // ... otros libros
+];
+
+export default function LibroDetalle() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [showSinopsis, setShowSinopsis] = useState(false);
+  const libro = librosRepo.find(l => l.id === Number(id));
+
+  if (!libro) return <div>Libro no encontrado</div>;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      style={{
+        minHeight: "100vh",
+        position: "relative",
+        overflow: "hidden",
+        padding: "40px 20px",
+      }}
+    >
+      {/* Fondo con efecto de desenfoque */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundImage: `url(${libro.portada})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          filter: "blur(50px)",
+          opacity: 0.3,
+          zIndex: 0
+        }}
+      />
+
+      {/* Contenido principal */}
+      <div style={{
+        position: "relative",
+        zIndex: 1,
+        maxWidth: "1200px",
+        margin: "0 auto",
+        padding: "20px"
+      }}>
+        {/* Botón Volver */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          style={{
+            background: "rgba(255, 255, 255, 0.2)",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(255, 255, 255, 0.3)",
+            color: "#fff",
+            padding: "12px 24px",
+            borderRadius: "50px",
+            cursor: "pointer",
+            fontSize: "16px",
+            marginBottom: "40px",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
+          }}
+          onClick={() => navigate(-1)}
+        >
+          ← Volver
+        </motion.button>
+
+        {/* Contenedor del libro */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "400px 1fr",
+          gap: "60px",
+          alignItems: "start"
+        }}>
+          {/* Portada del libro */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <img
+              src={libro.portada}
+              alt={libro.titulo}
+              style={{
+                width: "100%",
+                borderRadius: "20px",
+                boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
+                aspectRatio: "2/3",
+                objectFit: "cover"
+              }}
+            />
+          </motion.div>
+
+          {/* Información del libro */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            style={{
+              color: "#fff",
+              display: "flex",
+              flexDirection: "column",
+              gap: "24px"
+            }}
+          >
+            <div>
+              <h1 style={{
+                fontSize: "48px",
+                fontWeight: "bold",
+                marginBottom: "16px",
+                background: "linear-gradient(45deg, #00c6ff, #ffb347)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent"
+              }}>
+                {libro.titulo}
+              </h1>
+              <h2 style={{
+                fontSize: "24px",
+                color: "#fff",
+                opacity: 0.8
+              }}>
+                {libro.autor}
+              </h2>
+            </div>
+
+            {/* Detalles del libro */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: "20px",
+              background: "rgba(255,255,255,0.1)",
+              borderRadius: "15px",
+              padding: "20px",
+              backdropFilter: "blur(10px)"
+            }}>
+              <div>
+                <div style={{ color: "#00c6ff", marginBottom: "4px" }}>Año</div>
+                <div>{libro.año}</div>
+              </div>
+              <div>
+                <div style={{ color: "#00c6ff", marginBottom: "4px" }}>Género</div>
+                <div>{libro.género}</div>
+              </div>
+              <div>
+                <div style={{ color: "#00c6ff", marginBottom: "4px" }}>Páginas</div>
+                <div>{libro.páginas}</div>
+              </div>
+              <div>
+                <div style={{ color: "#00c6ff", marginBottom: "4px" }}>Rating</div>
+                <div>{"★".repeat(Math.floor(libro.rating))} {libro.rating}/5</div>
+              </div>
+            </div>
+
+            {/* Sinopsis */}
+            <motion.div
+              animate={{ height: showSinopsis ? "auto" : "100px" }}
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                borderRadius: "15px",
+                padding: "24px",
+                backdropFilter: "blur(10px)",
+                overflow: "hidden",
+                position: "relative"
+              }}
+            >
+              <h3 style={{
+                fontSize: "20px",
+                marginBottom: "16px",
+                color: "#00c6ff"
+              }}>
+                Sinopsis
+              </h3>
+              <p style={{ lineHeight: 1.6, marginBottom: "20px" }}>
+                {libro.sinopsis}
+              </p>
+              {!showSinopsis && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: "80px",
+                    background: "linear-gradient(transparent, rgba(0,0,0,0.5))",
+                    display: "flex",
+                    alignItems: "flex-end",
+                    justifyContent: "center",
+                    padding: "20px"
+                  }}
+                >
+                  <button
+                    onClick={() => setShowSinopsis(true)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#00c6ff",
+                      cursor: "pointer",
+                      fontSize: "14px"
+                    }}
+                  >
+                    Mostrar más ▼
+                  </button>
+                </div>
+              )}
+            </motion.div>
+
+            {/* Botón de lectura */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              style={{
+                background: "linear-gradient(45deg, #00c6ff, #ffb347)",
+                border: "none",
+                padding: "20px",
+                borderRadius: "15px",
+                color: "#fff",
+                fontSize: "20px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                marginTop: "20px",
+                boxShadow: "0 10px 20px rgba(0,198,255,0.3)"
+              }}
+              onClick={() => navigate(`/libro/${libro.id}/leer`)}
+            >
+              Comenzar lectura
+            </motion.button>
+          </motion.div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}

@@ -1,65 +1,126 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [numero, setNumero] = useState("");
   const [isRegister, setIsRegister] = useState(false);
   const [role, setRole] = useState("user");
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (isRegister) {
-      let users = JSON.parse(localStorage.getItem("users")) || [];
-      const exists = users.some((u) => u.email === email);
-      if (exists) {
-        alert("El correo ya está registrado");
+      // Validación de correo gmail.com
+      if (!email.includes("gmail.com")) {
+        alert("Por favor, ingrese las credenciales correctas.");
         return;
       }
-      users.push({ email, password, role });
-      localStorage.setItem("users", JSON.stringify(users));
-      alert("Cuenta creada. Ahora puedes iniciar sesión.");
-      setIsRegister(false);
-      setEmail("");
-      setPassword("");
-      setRole("user");
+
+      try {
+        const response = await fetch('http://localhost:3003/api/contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombre: nombre,
+            numero: numero,
+            correo: email,
+            contraseña: password,
+            role: role,
+          }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          alert('Usuario registrado correctamente. Por favor, inicia sesión.');
+          setIsRegister(false);
+          setEmail("");
+          setPassword("");
+          setNombre("");
+          setNumero("");
+          setRole("user");
+        } else {
+          alert(data.error || 'Error al registrar usuario');
+        }
+      } catch (error) {
+        console.error('Error durante el registro:', error);
+        alert('Error de conexión');
+      }
       return;
     }
-    // Login
-    const users = JSON.parse(localStorage.getItem("users")) || [];
-    const userFound = users.find(
-      (u) => u.email === email && u.password === password
-    );
-    if (userFound) {
-      localStorage.setItem("user", JSON.stringify(userFound));
-      if (userFound.role === "admin") {
-        navigate("/admin");
-      } else {
+
+    try {
+      const response = await fetch('http://localhost:3003/api/contacts/login', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ 
+          correo: email, 
+          contraseña: password,
+        })
+      });
+
+      if (response.ok) {
+        const user = await response.json();
+        // Guardar el token y la información del usuario
+        window.localStorage.setItem('loggedBlogappUser', JSON.stringify(user));
+        // Redirige a biblioteca
         navigate("/biblioteca");
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || "Credenciales incorrectas. Asegúrate de usar un correo de Gmail y la contraseña correcta.");
       }
-    } else {
-      alert("Credenciales incorrectas");
+    } catch (error) {
+      console.error('Error durante el login:', error);
+      alert("Error de conexión. Por favor, intenta de nuevo.");
     }
   };
 
   return (
     <form onSubmit={handleSubmit} style={{ maxWidth: 320, margin: "80px auto", display: "flex", flexDirection: "column", gap: 16 }}>
       <h2 style={{ textAlign: "center" }}>{isRegister ? "Crear cuenta" : "Iniciar sesión"}</h2>
+      {isRegister && (
+        <>
+          <input
+            type="text"
+            name="name"
+            placeholder="Nombre"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            required
+            style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
+          />
+          <input
+            type="text"
+            name="number"
+            placeholder="Número"
+            value={numero}
+            onChange={(e) => setNumero(e.target.value)}
+            required
+            style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
+          />
+        </>
+      )}
       <input
         type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        name="correo"
         placeholder="Correo"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
         required
         style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
       />
       <input
         type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        name="contraseña"
         placeholder="Contraseña"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
         required
         style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
       />
